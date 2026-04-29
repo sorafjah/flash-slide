@@ -359,6 +359,18 @@
             autoMode: document.getElementById('auto-mode').value
         };
 
+        // outerHTMLのvalue属性は初期値のままなので、現在値を属性に書き戻す
+        document.getElementById('text-color').setAttribute('value', settings.textColor);
+        document.getElementById('font-size').setAttribute('value', settings.fontScale);
+        Array.from(document.getElementById('order-mode').options).forEach(opt => {
+            opt.removeAttribute('selected');
+            if (opt.value === settings.orderMode) opt.setAttribute('selected', 'selected');
+        });
+        Array.from(document.getElementById('auto-mode').options).forEach(opt => {
+            opt.removeAttribute('selected');
+            if (opt.value === settings.autoMode) opt.setAttribute('selected', 'selected');
+        });
+
         // 現在のHTMLを取得（DOMから）
         let htmlContent = document.documentElement.outerHTML;
 
@@ -479,10 +491,9 @@ window.EMBEDDED_SETTINGS = ${JSON.stringify(settings)};
         }
     });
 
-    // 起動時に設定を適用（EMBEDDED_SETTINGSがあればそちらを優先）
+    // 起動時の設定適用：EMBEDDED_SETTINGSがあればlocalStorageより優先
     if (window.EMBEDDED_SETTINGS) {
         applySettings(window.EMBEDDED_SETTINGS);
-        // localStorageにも保存して、次回起動時に反映
         localStorage.setItem('flashcard_settings', JSON.stringify(window.EMBEDDED_SETTINGS));
     } else {
         initSettings();
