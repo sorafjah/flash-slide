@@ -268,66 +268,10 @@
         }
     }
 
-    // === データの初期化とIndexedDB管理 ===
+    // === データの初期化（常に空の状態で起動） ===
     function initData() {
-        if (window.EMBEDDED_CARDS && window.EMBEDDED_CARDS.length > 0) {
-            // エクスポートされたHTMLの場合：埋め込みデータを使う
-            cards = window.EMBEDDED_CARDS;
-            renderAdmin();
-            // DBにも同期しておく（任意）
-            initDB(true);
-        } else {
-            // 通常起動：DBからロード
-            initDB(false);
-        }
-    }
-
-    function initDB(isExported) {
-        try {
-            const request = indexedDB.open("FlashcardDB_v2", 1);
-            request.onupgradeneeded = e => {
-                db = e.target.result;
-                if (!db.objectStoreNames.contains("appData")) {
-                    db.createObjectStore("appData", { keyPath: "id" });
-                }
-            };
-            request.onsuccess = e => {
-                db = e.target.result;
-                if (isExported) {
-                    syncToDB();
-                } else {
-                    loadFromDB();
-                }
-            };
-            request.onerror = () => {
-                if (!isExported) renderAdmin();
-            };
-        } catch (e) {
-            if (!isExported) renderAdmin();
-        }
-    }
-
-    function syncToDB() {
-        if (!db) return;
-        try {
-            const tx = db.transaction(["appData"], "readwrite");
-            tx.objectStore("appData").put({ id: "cards", data: cards });
-        } catch(e) {}
-    }
-
-    function loadFromDB() {
-        if (!db) return renderAdmin();
-        try {
-            const tx = db.transaction(["appData"], "readonly");
-            tx.objectStore("appData").get("cards").onsuccess = e => {
-                if (e.target.result && e.target.result.data) {
-                    cards = e.target.result.data;
-                }
-                renderAdmin();
-            };
-        } catch(e) {
-            renderAdmin();
-        }
+        cards = [];
+        renderAdmin();
     }
 
     // 画像ファイル読み込み
@@ -343,7 +287,6 @@
                 reader.readAsDataURL(file);
             });
         }
-        syncToDB();
         renderAdmin();
         e.target.value = '';
     });
@@ -351,7 +294,6 @@
     // 文字のみカード追加
     function addTextCard() {
         cards.push({ image: null, text: "" });
-        syncToDB();
         renderAdmin();
     }
 
@@ -385,13 +327,11 @@
 
     function updateText(index, text) {
         cards[index].text = text;
-        syncToDB();
     }
 
     function deleteCard(index) {
         if (!confirm("このカードを削除しますか？")) return;
         cards.splice(index, 1);
-        syncToDB();
         renderAdmin();
     }
 
@@ -401,7 +341,6 @@
         const temp = cards[index];
         cards.splice(index, 1);
         cards.splice(targetIndex, 0, temp);
-        syncToDB();
         renderAdmin();
     }
 
