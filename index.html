@@ -268,9 +268,12 @@
         }
     }
 
-    // === データの初期化（常に空の状態で起動） ===
+    // === データの初期化 ===
     function initData() {
-        cards = [];
+        // エクスポートされたHTMLならデータをロード、それ以外は空で起動
+        cards = (window.EMBEDDED_CARDS && window.EMBEDDED_CARDS.length > 0)
+            ? window.EMBEDDED_CARDS
+            : [];
         renderAdmin();
     }
 
