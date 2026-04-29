@@ -6,9 +6,11 @@
     <title>おてがるフラッシュカード</title>
     <style>
         :root {
-            --bg-color: #e0f7fa; /* うすい水色 */
-            --text-color: #333;
+            --bg-color: #e0f7fa;
+            --text-color: #333333;
             --accent-color: #007bff;
+            --font-scale: 1.0;
+            --base-font-size: clamp(1.5rem, 5vw, 4rem); 
         }
 
         * {
@@ -24,10 +26,9 @@
             font-family: sans-serif;
             background-color: var(--bg-color);
             overflow: hidden;
-            touch-action: manipulation; /* ダブルタップズーム防止 */
+            touch-action: manipulation;
         }
 
-        /* 管理画面レイアウト */
         #admin-screen {
             padding: 20px;
             height: 100%;
@@ -44,10 +45,19 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
+        .control-group {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
         .card-list {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
             gap: 15px;
+            padding-bottom: 50px;
         }
 
         .card-item {
@@ -56,32 +66,48 @@
             border-radius: 8px;
             text-align: center;
             position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
 
         .card-item img {
             width: 100%;
             height: 100px;
             object-fit: contain;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .card-item .no-image {
+            width: 100%;
+            height: 100px;
+            background-color: #f0f0f0;
+            color: #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            font-size: 14px;
         }
 
         .card-item input {
             width: 100%;
-            margin-top: 5px;
+            margin-top: 8px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
         }
 
         .order-btns {
             display: flex;
             justify-content: space-between;
-            margin-top: 5px;
+            margin-top: 8px;
         }
 
-        /* 再生画面レイアウト */
         #play-screen {
             display: none;
             width: 100%;
             height: 100%;
             position: relative;
-            display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
@@ -92,79 +118,118 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            width: 90%;
-            height: 90%;
+            width: 95%;
+            height: 95%;
             text-align: center;
+            cursor: pointer;
         }
 
         #display-image {
             max-width: 100%;
             max-height: 70vh;
             object-fit: contain;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         #display-text {
-            font-size: clamp(2rem, 8vw, 5rem);
-            font-weight: bold;
+            font-size: calc(var(--base-font-size) * var(--font-scale));
             color: var(--text-color);
+            font-weight: bold;
+            line-height: 1.2;
+            word-break: break-word;
         }
 
-        /* 設定アイコン */
         #gear-icon {
             position: absolute;
-            right: 15px;
-            bottom: 15px;
-            font-size: 24px;
-            opacity: 0.1; /* 目立たないように */
+            right: 20px;
+            bottom: 20px;
+            font-size: 30px;
+            opacity: 0.4;
             cursor: pointer;
             z-index: 100;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         button {
-            padding: 10px 20px;
-            font-size: 16px;
+            padding: 8px 16px;
+            font-size: 14px;
             cursor: pointer;
             border-radius: 5px;
             border: none;
             background-color: var(--accent-color);
             color: white;
+            font-weight: bold;
         }
 
-        .delete-btn { background: #dc3545; font-size: 12px; padding: 5px; }
-        .move-btn { background: #6c757d; font-size: 12px; padding: 5px; }
+        button:active { opacity: 0.8; }
 
+        .btn-green { background-color: #28a745; }
+        .btn-export { background-color: #17a2b8; font-size: 16px; padding: 10px 20px; }
+        .delete-btn { background: #fd7e14; font-size: 12px; padding: 5px 10px; }
+        .move-btn { background: #007bff; font-size: 12px; padding: 5px 10px; }
+        .start-btn { font-size: 18px; padding: 10px 30px; }
     </style>
 </head>
 <body>
 
+<!-- 管理画面 -->
 <div id="admin-screen">
     <h1>フラッシュカード管理</h1>
     
     <div class="controls">
-        <input type="file" id="file-input" multiple accept="image/*">
-        <p>設定：
-            表示順：<select id="order-mode"><option value="normal">順番通り</option><option value="shuffle">ランダム</option></select>
-            再生：<select id="auto-mode">
+        <div class="control-group">
+            <input type="file" id="file-input" multiple accept="image/*" style="display:none;">
+            <button onclick="document.getElementById('file-input').click()">📁 画像を読み込む</button>
+            <button class="btn-green" onclick="addTextCard()">+ 文字だけのカードを追加</button>
+        </div>
+        <hr style="border:0; border-top:1px solid #eee; margin: 15px 0;">
+        <div class="control-group">
+            <span>文字色：</span>
+            <input type="color" id="text-color" value="#333333" onchange="saveSettings()">
+            
+            <span style="margin-left: 15px;">文字サイズ：</span>
+            <input type="range" id="font-size" min="0.5" max="3.0" step="0.1" value="1.0" oninput="saveSettings()" onchange="saveSettings()" style="width: 100px;">
+        </div>
+        <div class="control-group" style="margin-top: 10px;">
+            <span>表示順：</span>
+            <select id="order-mode" onchange="saveSettings()">
+                <option value="normal">順番通り</option>
+                <option value="shuffle">ランダム</option>
+            </select>
+            <span style="margin-left: 10px;">再生：</span>
+            <select id="auto-mode" onchange="saveSettings()">
                 <option value="0">手動</option>
                 <option value="1000">自動（1秒）</option>
                 <option value="5000">自動（5秒）</option>
                 <option value="10000">自動（10秒）</option>
             </select>
-            <button onclick="startApp()">再生開始</button>
-        </p>
+        </div>
+        <div style="text-align: right; display: flex; justify-content: flex-end; gap: 15px; margin-top: 15px;">
+            <button class="btn-export" onclick="exportHTML()">📥 HTMLで保存</button>
+            <button class="start-btn" onclick="startApp()">▶ 再生開始</button>
+        </div>
     </div>
 
     <div id="card-list" class="card-list"></div>
 </div>
 
+<!-- 再生画面 -->
 <div id="play-screen" style="display:none;">
-    <div id="card-content" onclick="nextCard()">
+    <div id="card-content" onclick="handleTap(event)">
         <img id="display-image" src="" alt="" style="display:none;">
         <div id="display-text"></div>
     </div>
     <div id="gear-icon" onclick="stopApp()">⚙️</div>
 </div>
+
+<!-- エクスポート時にデータがここに挿入される -->
+<!-- EMBEDDED_DATA_PLACEHOLDER -->
 
 <script>
     let cards = [];
@@ -172,75 +237,162 @@
     let timer = null;
     let db;
 
-    // IndexedDB 初期化
-    const request = indexedDB.open("FlashcardDB", 1);
-    request.onupgradeneeded = e => {
-        db = e.target.result;
-        db.createObjectStore("cards", { keyPath: "id", autoIncrement: true });
-    };
-    request.onsuccess = e => {
-        db = e.target.result;
-        loadCards();
-    };
+    // === 設定の保存と読み込み ===
+    function saveSettings() {
+        const settings = {
+            textColor: document.getElementById('text-color').value,
+            fontScale: document.getElementById('font-size').value,
+            orderMode: document.getElementById('order-mode').value,
+            autoMode: document.getElementById('auto-mode').value
+        };
+        localStorage.setItem('flashcard_settings', JSON.stringify(settings));
+        applySettings(settings);
+    }
 
-    // ファイル読み込み
+    function applySettings(settings) {
+        if (!settings) return;
+        document.documentElement.style.setProperty('--text-color', settings.textColor);
+        document.documentElement.style.setProperty('--font-scale', settings.fontScale);
+        document.getElementById('text-color').value = settings.textColor;
+        document.getElementById('font-size').value = settings.fontScale;
+        document.getElementById('order-mode').value = settings.orderMode || 'normal';
+        document.getElementById('auto-mode').value = settings.autoMode || '0';
+    }
+
+    function initSettings() {
+        const saved = localStorage.getItem('flashcard_settings');
+        if (saved) {
+            applySettings(JSON.parse(saved));
+        } else {
+            saveSettings();
+        }
+    }
+
+    // === データの初期化とIndexedDB管理 ===
+    function initData() {
+        if (window.EMBEDDED_CARDS && window.EMBEDDED_CARDS.length > 0) {
+            // エクスポートされたHTMLの場合：埋め込みデータを使う
+            cards = window.EMBEDDED_CARDS;
+            renderAdmin();
+            // DBにも同期しておく（任意）
+            initDB(true);
+        } else {
+            // 通常起動：DBからロード
+            initDB(false);
+        }
+    }
+
+    function initDB(isExported) {
+        try {
+            const request = indexedDB.open("FlashcardDB_v2", 1);
+            request.onupgradeneeded = e => {
+                db = e.target.result;
+                if (!db.objectStoreNames.contains("appData")) {
+                    db.createObjectStore("appData", { keyPath: "id" });
+                }
+            };
+            request.onsuccess = e => {
+                db = e.target.result;
+                if (isExported) {
+                    syncToDB();
+                } else {
+                    loadFromDB();
+                }
+            };
+            request.onerror = () => {
+                if (!isExported) renderAdmin();
+            };
+        } catch (e) {
+            if (!isExported) renderAdmin();
+        }
+    }
+
+    function syncToDB() {
+        if (!db) return;
+        try {
+            const tx = db.transaction(["appData"], "readwrite");
+            tx.objectStore("appData").put({ id: "cards", data: cards });
+        } catch(e) {}
+    }
+
+    function loadFromDB() {
+        if (!db) return renderAdmin();
+        try {
+            const tx = db.transaction(["appData"], "readonly");
+            tx.objectStore("appData").get("cards").onsuccess = e => {
+                if (e.target.result && e.target.result.data) {
+                    cards = e.target.result.data;
+                }
+                renderAdmin();
+            };
+        } catch(e) {
+            renderAdmin();
+        }
+    }
+
+    // 画像ファイル読み込み
     document.getElementById('file-input').addEventListener('change', async (e) => {
         const files = Array.from(e.target.files);
         for (const file of files) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const card = { image: event.target.result, text: "" };
-                const transaction = db.transaction(["cards"], "readwrite");
-                transaction.objectStore("cards").add(card);
-                loadCards();
-            };
-            reader.readAsDataURL(file);
+            await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    cards.push({ image: event.target.result, text: "" });
+                    resolve();
+                };
+                reader.readAsDataURL(file);
+            });
         }
+        syncToDB();
+        renderAdmin();
+        e.target.value = '';
     });
 
-    // カード読み込み・描画
-    function loadCards() {
-        const transaction = db.transaction(["cards"], "readonly");
-        const store = transaction.objectStore("cards");
-        const getAll = store.getAll();
-        getAll.onsuccess = () => {
-            cards = getAll.result;
-            renderAdmin();
-        };
+    // 文字のみカード追加
+    function addTextCard() {
+        cards.push({ image: null, text: "" });
+        syncToDB();
+        renderAdmin();
     }
 
+    // 管理画面の描画
     function renderAdmin() {
         const list = document.getElementById('card-list');
         list.innerHTML = "";
         cards.forEach((card, index) => {
             const div = document.createElement('div');
             div.className = "card-item";
+
+            const imgHtml = card.image 
+                ? `<img src="${card.image}">` 
+                : `<div class="no-image">文字のみ</div>`;
+
+            // textをエスケープしてinputのvalue属性に安全に設定
+            const safeText = (card.text || "").replace(/"/g, '&quot;');
+
             div.innerHTML = `
-                <img src="${card.image}">
-                <input type="text" value="${card.text}" onchange="updateText(${card.id}, this.value)" placeholder="テキストなし">
+                ${imgHtml}
+                <input type="text" value="${safeText}" oninput="updateText(${index}, this.value)" placeholder="テキストを入力">
                 <div class="order-btns">
-                    <button class="move-btn" onclick="moveCard(${index}, -1)">←</button>
-                    <button class="delete-btn" onclick="deleteCard(${card.id})">削除</button>
-                    <button class="move-btn" onclick="moveCard(${index}, 1)">→</button>
+                    <button class="move-btn" onclick="moveCard(${index}, -1)">← 前へ</button>
+                    <button class="delete-btn" onclick="deleteCard(${index})">削除</button>
+                    <button class="move-btn" onclick="moveCard(${index}, 1)">次へ →</button>
                 </div>
             `;
             list.appendChild(div);
         });
     }
 
-    function updateText(id, text) {
-        const transaction = db.transaction(["cards"], "readwrite");
-        const store = transaction.objectStore("cards");
-        store.get(id).onsuccess = (e) => {
-            const data = e.target.result;
-            data.text = text;
-            store.put(data);
-        };
+    function updateText(index, text) {
+        cards[index].text = text;
+        syncToDB();
     }
 
-    function deleteCard(id) {
-        const transaction = db.transaction(["cards"], "readwrite");
-        transaction.objectStore("cards").delete(id).onsuccess = loadCards;
+    function deleteCard(index) {
+        if (!confirm("このカードを削除しますか？")) return;
+        cards.splice(index, 1);
+        syncToDB();
+        renderAdmin();
     }
 
     function moveCard(index, direction) {
@@ -249,38 +401,68 @@
         const temp = cards[index];
         cards.splice(index, 1);
         cards.splice(targetIndex, 0, temp);
-        
-        // IndexedDBの全データを一旦クリアして再保存（簡易的な順番保持のため）
-        const transaction = db.transaction(["cards"], "readwrite");
-        const store = transaction.objectStore("cards");
-        store.clear().onsuccess = () => {
-            cards.forEach(c => {
-                delete c.id;
-                store.add(c);
-            });
-            loadCards();
-        };
+        syncToDB();
+        renderAdmin();
     }
 
-    // アプリ開始
+    // === HTMLエクスポート ===
+    function exportHTML() {
+        if (cards.length === 0) return alert("エクスポートするカードがありません。");
+
+        // 現在の設定を取得
+        const settings = {
+            textColor: document.getElementById('text-color').value,
+            fontScale: document.getElementById('font-size').value,
+            orderMode: document.getElementById('order-mode').value,
+            autoMode: document.getElementById('auto-mode').value
+        };
+
+        // 現在のHTMLを取得（DOMから）
+        let htmlContent = document.documentElement.outerHTML;
+
+        // 既存の埋め込みデータを削除（再エクスポート時の重複防止）
+        htmlContent = htmlContent.replace(/<!--\s*EMBEDDED_DATA_START\s*-->[\s\S]*?<!--\s*EMBEDDED_DATA_END\s*-->/g, '<!-- EMBEDDED_DATA_PLACEHOLDER -->');
+
+        // プレースホルダーにデータを挿入
+        const dataBlock = `<!-- EMBEDDED_DATA_START -->
+<script>
+window.EMBEDDED_CARDS = ${JSON.stringify(cards)};
+window.EMBEDDED_SETTINGS = ${JSON.stringify(settings)};
+<\/script>
+<!-- EMBEDDED_DATA_END -->`;
+
+        htmlContent = htmlContent.replace('<!-- EMBEDDED_DATA_PLACEHOLDER -->', dataBlock);
+
+        // ダウンロード
+        const blob = new Blob(['<!DOCTYPE html>\n' + htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'flashcard_exported.html';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    // ======== 再生画面 ========
     let playList = [];
+
     function startApp() {
-        if (cards.length === 0) return alert("カードを読み込んでください");
-        
+        if (cards.length === 0) return alert("カードを追加してください");
+
         playList = [...cards];
+
         if (document.getElementById('order-mode').value === 'shuffle') {
-            playList.sort(() => Math.random() - 0.5);
+            for (let i = playList.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [playList[i], playList[j]] = [playList[j], playList[i]];
+            }
         }
 
         currentIndex = 0;
         document.getElementById('admin-screen').style.display = 'none';
         document.getElementById('play-screen').style.display = 'flex';
         showCard();
-
-        const interval = parseInt(document.getElementById('auto-mode').value);
-        if (interval > 0) {
-            timer = setInterval(nextCard, interval);
-        }
+        resetTimer();
     }
 
     function stopApp() {
@@ -297,32 +479,74 @@
         if (card.image) {
             imgEl.src = card.image;
             imgEl.style.display = 'block';
+            imgEl.style.maxHeight = card.text ? '60vh' : '85vh';
         } else {
             imgEl.style.display = 'none';
         }
+
         textEl.textContent = card.text || "";
+    }
+
+    function resetTimer() {
+        const interval = parseInt(document.getElementById('auto-mode').value);
+        clearInterval(timer);
+        if (interval > 0) {
+            timer = setInterval(nextCard, interval);
+        }
     }
 
     function nextCard() {
         currentIndex = (currentIndex + 1) % playList.length;
         showCard();
+        resetTimer();
     }
 
     function prevCard() {
         currentIndex = (currentIndex - 1 + playList.length) % playList.length;
         showCard();
+        resetTimer();
+    }
+
+    function handleTap(e) {
+        if (e.target.id === 'gear-icon') return;
+        nextCard();
     }
 
     // スワイプ判定
     let touchStartX = 0;
+    let touchStartY = 0;
+
     document.getElementById('play-screen').addEventListener('touchstart', e => {
         touchStartX = e.changedTouches[0].screenX;
-    });
+        touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
     document.getElementById('play-screen').addEventListener('touchend', e => {
         let touchEndX = e.changedTouches[0].screenX;
-        if (touchStartX - touchEndX > 50) nextCard();
-        if (touchEndX - touchStartX > 50) prevCard();
+        let touchEndY = e.changedTouches[0].screenY;
+        let diffX = touchStartX - touchEndX;
+        let diffY = Math.abs(touchStartY - touchEndY);
+
+        if (Math.abs(diffX) > 50 && Math.abs(diffX) > diffY) {
+            e.preventDefault();
+            if (diffX > 0) {
+                nextCard();
+            } else {
+                prevCard();
+            }
+        }
     });
+
+    // 起動時に設定を適用（EMBEDDED_SETTINGSがあればそちらを優先）
+    if (window.EMBEDDED_SETTINGS) {
+        applySettings(window.EMBEDDED_SETTINGS);
+        // localStorageにも保存して、次回起動時に反映
+        localStorage.setItem('flashcard_settings', JSON.stringify(window.EMBEDDED_SETTINGS));
+    } else {
+        initSettings();
+    }
+
+    initData();
 </script>
 </body>
 </html>
