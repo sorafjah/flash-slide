@@ -171,9 +171,26 @@
 
         .btn-green { background-color: #28a745; }
         .btn-export { background-color: #17a2b8; font-size: 16px; padding: 10px 20px; }
+        .btn-load-html { background-color: #138496; font-size: 16px; padding: 10px 20px; }
+        .btn-copy-html { background-color: #0f6674; font-size: 16px; padding: 10px 20px; }
         .delete-btn { background: #fd7e14; font-size: 12px; padding: 5px 10px; }
         .move-btn { background: #007bff; font-size: 12px; padding: 5px 10px; }
         .start-btn { font-size: 18px; padding: 10px 30px; }
+
+        #toast {
+            display: none;
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.75);
+            color: white;
+            padding: 10px 22px;
+            border-radius: 20px;
+            font-size: 15px;
+            z-index: 9999;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -210,7 +227,10 @@
                 <option value="10000">自動（10秒）</option>
             </select>
         </div>
-        <div style="text-align: right; display: flex; justify-content: flex-end; gap: 15px; margin-top: 15px;">
+        <div style="text-align: right; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 15px;">
+            <input type="file" id="html-load-input" accept=".html" style="display:none;">
+            <button class="btn-load-html" onclick="document.getElementById('html-load-input').click()">📂 HTMLを読み込む</button>
+            <button class="btn-copy-html" onclick="copyHTML()">📋 HTMLをコピー</button>
             <button class="btn-export" onclick="exportHTML()">📥 HTMLで保存</button>
             <button class="start-btn" onclick="startApp()">▶ 再生開始</button>
         </div>
@@ -228,6 +248,9 @@
     <div id="gear-icon" onclick="stopApp()">⚙️</div>
 </div>
 
+<!-- トースト通知 -->
+<div id="toast"></div>
+
 <!-- エクスポート時にデータがここに挿入される -->
 <!-- EMBEDDED_DATA_PLACEHOLDER -->
 
@@ -235,7 +258,14 @@
     let cards = [];
     let currentIndex = 0;
     let timer = null;
-    let db;
+
+    // === トースト表示 ===
+    function showToast(msg, duration = 2000) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.style.display = 'block';
+        setTimeout(() => { t.style.display = 'none'; }, duration);
+    }
 
     // === 設定の保存と読み込み ===
     function saveSettings() {
@@ -270,11 +300,82 @@
 
     // === データの初期化 ===
     function initData() {
-        // エクスポートされたHTMLならデータをロード、それ以外は空で起動
         cards = (window.EMBEDDED_CARDS && window.EMBEDDED_CARDS.length > 0)
             ? window.EMBEDDED_CARDS
             : [];
         renderAdmin();
+    }
+
+    // === 保存済みHTMLファイルを読み込む ===
+    document.getElementById('html-load-input').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const html = event.target.result;
+
+            // EMBEDDED_CARDS を抽出
+            const cardsMatch = html.match(/window\.EMBEDDED_CARDS\s*=\s*(\[[\s\S]*?\]);/);
+            const settingsMatch = html.match(/window\.EMBEDDED_SETTINGS\s*=\s*(\{[\s\S]*?\});/);
+
+            if (!cardsMatch) {
+                alert('カードデータが見つかりませんでした。\nこのアプリでエクスポートしたHTMLファイルを選んでください。');
+                e.target.value = '';
+                return;
+            }
+
+            try {
+                const loadedCards = JSON.parse(cardsMatch[1]);
+                cards = loadedCards;
+
+                if (settingsMatch) {
+                    const loadedSettings = JSON.parse(settingsMatch[1]);
+                    applySettings(loadedSettings);
+                    localStorage.setItem('flashcard_settings', JSON.stringify(loadedSettings));
+                }
+
+                renderAdmin();
+                showToast(`読み込み完了：${cards.length}枚のカードを読み込みました`);
+            } catch (err) {
+                alert('データの解析に失敗しました：' + err.message);
+            }
+
+            e.target.value = '';
+        };
+        reader.readAsText(file, 'UTF-8');
+    });
+
+    // === HTMLをクリップボードにコピー ===
+    function copyHTML() {
+        if (cards.length === 0) {
+            alert('コピーするカードがありません。');
+            return;
+        }
+
+        const htmlContent = buildExportHTML();
+
+        // document.execCommand('copy') を使用
+        const textarea = document.createElement('textarea');
+        textarea.value = htmlContent;
+        textarea.style.position = 'fixed';
+        textarea.style.top = '-9999px';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+
+        try {
+            const success = document.execCommand('copy');
+            if (success) {
+                showToast('HTMLをクリップボードにコピーしました');
+            } else {
+                alert('コピーに失敗しました。「HTMLで保存」をお使いください。');
+            }
+        } catch (err) {
+            alert('コピーに失敗しました：' + err.message);
+        }
+
+        document.body.removeChild(textarea);
     }
 
     // 画像ファイル読み込み
@@ -312,7 +413,6 @@
                 ? `<img src="${card.image}">` 
                 : `<div class="no-image">文字のみ</div>`;
 
-            // textをエスケープしてinputのvalue属性に安全に設定
             const safeText = (card.text || "").replace(/"/g, '&quot;');
 
             div.innerHTML = `
@@ -347,11 +447,8 @@
         renderAdmin();
     }
 
-    // === HTMLエクスポート ===
-    function exportHTML() {
-        if (cards.length === 0) return alert("エクスポートするカードがありません。");
-
-        // 現在の設定を取得
+    // === エクスポート用HTML文字列を生成 ===
+    function buildExportHTML() {
         const settings = {
             textColor: document.getElementById('text-color').value,
             fontScale: document.getElementById('font-size').value,
@@ -359,7 +456,7 @@
             autoMode: document.getElementById('auto-mode').value
         };
 
-        // outerHTMLのvalue属性は初期値のままなので、現在値を属性に書き戻す
+        // outerHTMLのvalue属性に現在値を書き戻す
         document.getElementById('text-color').setAttribute('value', settings.textColor);
         document.getElementById('font-size').setAttribute('value', settings.fontScale);
         Array.from(document.getElementById('order-mode').options).forEach(opt => {
@@ -371,13 +468,11 @@
             if (opt.value === settings.autoMode) opt.setAttribute('selected', 'selected');
         });
 
-        // 現在のHTMLを取得（DOMから）
         let htmlContent = document.documentElement.outerHTML;
 
-        // 既存の埋め込みデータを削除（再エクスポート時の重複防止）
+        // 既存の埋め込みデータを削除
         htmlContent = htmlContent.replace(/<!--\s*EMBEDDED_DATA_START\s*-->[\s\S]*?<!--\s*EMBEDDED_DATA_END\s*-->/g, '<!-- EMBEDDED_DATA_PLACEHOLDER -->');
 
-        // プレースホルダーにデータを挿入
         const dataBlock = `<!-- EMBEDDED_DATA_START -->
 <script>
 window.EMBEDDED_CARDS = ${JSON.stringify(cards)};
@@ -387,8 +482,16 @@ window.EMBEDDED_SETTINGS = ${JSON.stringify(settings)};
 
         htmlContent = htmlContent.replace('<!-- EMBEDDED_DATA_PLACEHOLDER -->', dataBlock);
 
-        // ダウンロード
-        const blob = new Blob(['<!DOCTYPE html>\n' + htmlContent], { type: 'text/html' });
+        return '<!DOCTYPE html>\n' + htmlContent;
+    }
+
+    // === HTMLエクスポート（ダウンロード） ===
+    function exportHTML() {
+        if (cards.length === 0) return alert("エクスポートするカードがありません。");
+
+        const htmlContent = buildExportHTML();
+
+        const blob = new Blob([htmlContent], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -491,7 +594,6 @@ window.EMBEDDED_SETTINGS = ${JSON.stringify(settings)};
         }
     });
 
-    // 起動時の設定適用：EMBEDDED_SETTINGSがあればlocalStorageより優先
     if (window.EMBEDDED_SETTINGS) {
         applySettings(window.EMBEDDED_SETTINGS);
         localStorage.setItem('flashcard_settings', JSON.stringify(window.EMBEDDED_SETTINGS));
